@@ -19,17 +19,16 @@ export const handler: Handler = async (event) => {
     return { statusCode: 400, body: "Missing Netlify environment variable, please check the documentation" };
   }
 
-  const recombeeApiId = event.queryStringParameters?.apiId;
   const typesToWatch = event.queryStringParameters?.types?.split(",");
   const languagesToWatch = event.queryStringParameters?.languages?.split(",");
 
   // Empty body
-  if (!event.body || !recombeeApiId || !typesToWatch || !languagesToWatch) {
+  if (!event.body || !typesToWatch || !languagesToWatch) {
     return { statusCode: 400, body: "Missing Data" };
   }
 
   const recombeeConfig: RecombeeConfiguration = {
-    database: recombeeApiId,
+    database: process.env.RECOMBEE_API_ID || "",
     key: RECOMBEE_API_KEY,
     region: process.env.RECOMBEE_REGION,
     baseUri: process.env.RECOMBEE_BASE_URI,

@@ -15,7 +15,7 @@ const getConfiguration = (body: string): RecommendationProjectConfiguration => {
       contentType: jsonBody.contentType,
     },
     recombee: {
-      database: jsonBody.recombeeApiId,
+      database: process.env.RECOMBEE_API_ID || "",
       region: process.env.RECOMBEE_REGION,
       baseUri: process.env.RECOMBEE_BASE_URI,
       key: RECOMBEE_API_KEY || "",
