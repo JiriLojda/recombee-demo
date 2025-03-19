@@ -1,7 +1,7 @@
-import { IWebhookDeliveryResponse, SignatureHelper } from "@kontent-ai/webhook-helper";
+import { SignatureHelper, WebhookItemNotification, WebhookNotification, WebhookResponse } from "@kontent-ai/webhook-helper";
 import { Handler } from "@netlify/functions";
 
-import { KontentConfiguration, RecombeeConfiguration } from "./model/configuration-model";
+import { RecombeeConfiguration } from "./model/configuration-model";
 import KontentClient from "./model/kontent-client";
 import RecombeeClient from "./model/recombee-client";
 
@@ -47,42 +47,40 @@ export const handler: Handler = async (event) => {
     return { statusCode: 401, body: "Unauthorized" };
   }
 
-  const webhook: IWebhookDeliveryResponse = JSON.parse(event.body);
-
-  // we are getting notified about changes in content items on the production delivery API
-  if (
-    webhook.message.api_name !== "delivery_production"
-    || !["content_item_variant", "content_item_variant"].includes(webhook.message.type)
-  ) {
-    return {
-      statusCode: 200,
-      body: "Nothing to process.",
-    };
-  }
+  const webhook: WebhookResponse = JSON.parse(event.body);
 
   const recombeeClient = new RecombeeClient(recombeeConfig);
-  switch (webhook.message.operation) {
-    // publish webhook
-    case "publish":
-    case "upsert": {
-      try {
-        await Promise.all(
-          webhook.data.items
-            .filter(item => typesToWatch.includes(item.type) && languagesToWatch.includes(item.language))
-            .map(async (item) => {
-              const kontentConfig: KontentConfiguration = {
-                environmentId: webhook.message.project_id,
-                contentType: item.type,
-                language: item.language,
-              };
-              const kontentClient = new KontentClient(kontentConfig);
 
-              const contentItem = await kontentClient.getContentForCodename(item.codename);
-              if (contentItem) {
-                await recombeeClient.importContent([contentItem]);
-              }
-            }),
-        );
+  await Promise.all(
+    webhook.notifications
+    .filter((notification: WebhookNotification) => notification.message.object_type === "content_item")
+    .filter((notification: WebhookItemNotification) => typesToWatch.includes(notification.data.system.type) && languagesToWatch.includes(notification.data.system.language))
+    .map(processItemNotification(recombeeClient)),
+  );
+  
+  return {
+    statusCode: 200,
+    body: "success",
+  };
+};
+
+const processItemNotification = (recombeeClient: RecombeeClient) => async (
+  notification: WebhookItemNotification
+) => {
+  switch (notification.message.action) {
+    // publish webhook
+    case "published": {
+      try {
+        const kontentClient = new KontentClient({
+          environmentId: notification.message.environment_id,
+          contentType: notification.data.system.type,
+          language: notification.data.system.language,
+        });
+
+        const contentItem = await kontentClient.getContentForCodename(notification.data.system.codename);
+        if (contentItem) {
+          await recombeeClient.importContent([contentItem]);
+        }
       } catch (err) {
         return {
           statusCode: 520,
@@ -92,14 +90,9 @@ export const handler: Handler = async (event) => {
       break;
     }
     // unpublish webhook
-    case "unpublish":
-    case "archive": {
+    case "unpublished": {
       try {
-        await Promise.all(
-          webhook.data.items
-            .filter(item => typesToWatch.includes(item.type) && languagesToWatch.includes(item.language))
-            .map(item => recombeeClient.deleteContent([`${item.id}_${item.language}`])),
-        );
+        await recombeeClient.deleteContent([`${notification.data.system.id}_${notification.data.system.language}`]);
       } catch (err) {
         return {
           statusCode: 520,
@@ -109,9 +102,4 @@ export const handler: Handler = async (event) => {
       break;
     }
   }
-
-  return {
-    statusCode: 200,
-    body: "success",
-  };
 };
