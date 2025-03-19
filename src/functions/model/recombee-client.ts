@@ -46,11 +46,11 @@ export default class RecombeeClient {
 
   private getContentValuesForRecommendations(item: IContentItem): Record<string, unknown> {
     const itemFields = [
-      ["codename", item.system.codename],
-      ["language", item.system.language],
-      ["last_modified", item.system.lastModified],
-      ["type", item.system.type],
-      ["collection", item.system.collection],
+      ["system_codename", item.system.codename],
+      ["system_language", item.system.language],
+      ["system_last_modified", item.system.lastModified],
+      ["system_type", item.system.type],
+      ["system_collection", item.system.collection],
     ] as const;
 
     const elementFields: [string, unknown][] = Object.entries(item.elements)
@@ -78,11 +78,11 @@ export default class RecombeeClient {
 
   initStructure(elements: IGenericElement[]): Promise<void> {
     const requests = [
-      new Recombee.requests.AddItemProperty("codename", "string"),
-      new Recombee.requests.AddItemProperty("language", "string"),
-      new Recombee.requests.AddItemProperty("last_modified", "timestamp"),
-      new Recombee.requests.AddItemProperty("collection", "string"),
-      new Recombee.requests.AddItemProperty("type", "string"),
+      new Recombee.requests.AddItemProperty("system_codename", "string"),
+      new Recombee.requests.AddItemProperty("system_language", "string"),
+      new Recombee.requests.AddItemProperty("system_last_modified", "timestamp"),
+      new Recombee.requests.AddItemProperty("system_collection", "string"),
+      new Recombee.requests.AddItemProperty("system_type", "string"),
       ...elements
         .map(element => {
           const dataType = this.datatypeMap.get(element.type);
